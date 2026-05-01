@@ -40,6 +40,7 @@ def convert_single_demo(source_dir, output_dir, episode_idx):
 
         if img is None or w_img is None or state is None or action is None:
             print(f"Skipping {pkl} due to missing data.")
+            print(f"img = {img}, w_img = {w_img}")
             continue
 
         # Store timestep in dictionary format
