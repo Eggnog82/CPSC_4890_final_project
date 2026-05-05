@@ -17,20 +17,27 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
 
-def load_data_by_episode(path, H, test_frac=0.2, seed=0):
+def load_data_from_stacked_episodes(
+    states,
+    actions,
+    images,
+    wrists,
+    H,
+    test_frac=0.2,
+    seed=0,
+):
     """
-    train, test = each dict with keys state, action, and optionally image, wrist.
-    state: (N, H*state_dim); images: (N, C, H, W) float [0,1].
-    """
-    data = np.load(path, allow_pickle=True)
-    states = data["states"]
-    actions = data["actions"]
-    has_image = "images" in data.files
-    has_wrist = "wrist_images" in data.files
-    images = data["images"] if has_image else None
-    wrists = data["wrist_images"] if has_wrist else None
+    Build train/test dicts from per-episode stacked arrays (same layout as bc_train.npz).
 
+    Args:
+        states:  (E,) object, each (T, state_dim)
+        actions: (E,) object, each (T, act_dim)
+        images:  (E,) object, each (T, h, w, 3) uint8, or None
+        wrists:  (E,) object, each (T, h, w, 3) uint8, or None
+    """
     assert len(states) == len(actions)
+    has_image = images is not None
+    has_wrist = wrists is not None
     E = len(states)
     rng = np.random.default_rng(seed)
     perm = rng.permutation(E)
@@ -77,6 +84,22 @@ def load_data_by_episode(path, H, test_frac=0.2, seed=0):
         return out
 
     return flatten(train_eps, H), flatten(test_eps, H)
+
+
+def load_data_by_episode(path, H, test_frac=0.2, seed=0):
+    """
+    train, test = each dict with keys state, action, and optionally image, wrist.
+    state: (N, H*state_dim); images: (N, C, H, W) float [0,1].
+    """
+    data = np.load(path, allow_pickle=True)
+    states = data["states"]
+    actions = data["actions"]
+    images = data["images"] if "images" in data.files else None
+    wrists = data["wrist_images"] if "wrist_images" in data.files else None
+
+    return load_data_from_stacked_episodes(
+        states, actions, images, wrists, H, test_frac=test_frac, seed=seed
+    )
 
 
 def compute_norm_stats(X, eps=1e-8):
