@@ -1,9 +1,13 @@
 import glob
 import os
 import pickle
+import sys
+
 import numpy as np
 from natsort import natsorted
 from tqdm import tqdm
+
+NPZ_NAME = "all_episodes.npz"
 
 
 def convert_single_demo(source_dir, output_dir, episode_idx):
@@ -43,13 +47,15 @@ def convert_single_demo(source_dir, output_dir, episode_idx):
             continue
 
         # Store timestep in dictionary format
-        episode.append({
-            'image': img,
-            'wrist_image': w_img,
-            'state': state,
-            'action': action,
-            'language_instruction': instruction
-        })
+        episode.append(
+            {
+                "image": img,
+                "wrist_image": w_img,
+                "state": state,
+                "action": action,
+                "language_instruction": instruction,
+            }
+        )
 
     if len(episode) == 0:
         print(f"Skipping {source_dir} (no valid timesteps)")
@@ -64,9 +70,28 @@ def convert_single_demo(source_dir, output_dir, episode_idx):
     return len(episode)
 
 
+def consolidate_npy_to_npz(output_dir: str) -> None:
+    """Write `<output_dir>/all_episodes.npz` from every `episode_*.npy` in that folder."""
+    paths = natsorted(glob.glob(os.path.join(output_dir, "episode_*.npy")))
+    if not paths:
+        print(f"No episode_*.npy files in {output_dir}; skipping .npz.")
+        return
+
+    episodes = [np.load(p, allow_pickle=True) for p in paths]
+    out_path = os.path.join(output_dir, NPZ_NAME)
+    np.savez_compressed(
+        out_path,
+        episodes=np.array(episodes, dtype=object),
+        episode_source_paths=np.array(paths, dtype=object),
+        num_episodes=len(episodes),
+    )
+    print(f"Consolidated {len(episodes)} episodes -> {out_path}")
+
+
 def main(source_dir):
     """
-    Processes multiple demonstrations from a given folder and saves them as `.npy` files.
+    Processes multiple demonstrations from a given folder, saves `.npy` per episode,
+    then writes `all_episodes.npz` in the same `_npy` folder.
     """
 
     subdirs = natsorted(glob.glob(os.path.join(source_dir, "*/")))
@@ -82,18 +107,17 @@ def main(source_dir):
     starting_eps = int(input("Starting episode number: "))
 
     for i, subdir in enumerate(tqdm(subdirs, desc="Processing Episodes")):
-        num_frames = convert_single_demo(subdir, output_dir, i+starting_eps)
+        num_frames = convert_single_demo(subdir, output_dir, i + starting_eps)
         if num_frames > 0:
             total_episodes += 1
 
     print(f"Finished! Total saved episodes: {total_episodes}")
+    consolidate_npy_to_npz(output_dir)
 
 
 if __name__ == "__main__":
-    import sys
     if len(sys.argv) < 2:
         print("Usage: python script.py <source_directory>")
         sys.exit(1)
 
-    source_directory = sys.argv[1]
-    main(source_directory)
+    main(sys.argv[1])
