@@ -1,7 +1,7 @@
 import math
 
 # List of degrees
-degrees_list = [0.1, -5.6, -0, 52.7, 0.4, 58.3, 0.5]
+degrees_list = [-0.3, -44.6, -0.6, 21.1, 0.4, 67.4, 0.7]
 
 # Convert to radians
 radians_list = [math.radians(deg) for deg in degrees_list]
